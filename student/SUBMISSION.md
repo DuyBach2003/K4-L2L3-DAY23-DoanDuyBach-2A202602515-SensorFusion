@@ -4,10 +4,10 @@
 
 ## Thông tin học viên
 
-- Họ tên:
-- MSSV:
-- Email:
-- Link repo (fork):
+- Họ tên: Đoàn Duy Bách
+- MSSV: 2A202602515
+- Email: bachtipch@gmail.com
+- Link repo (fork): https://github.com/DuyBach2003/K4-L2L3-DAY23-DoanDuyBach-2A202602515-SensorFusion
 - Commit hash nộp (`git rev-parse HEAD`):
 
 ## Tóm tắt kết quả
