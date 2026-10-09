@@ -8,7 +8,7 @@
 - MSSV: 2A202602515
 - Email: bachtipch@gmail.com
 - Link repo (fork): https://github.com/DuyBach2003/K4-L2L3-DAY23-DoanDuyBach-2A202602515-SensorFusion
-- Commit hash nộp (`git rev-parse HEAD`): ghi trên LMS (commit cuối của `main` sau khi push); artifacts chấm điểm được sinh ở commit `f130e5e` (CP5), code E–H không đổi sau lần chạy đó
+- Commit hash nộp (`git rev-parse HEAD`): ghi trên LMS (commit cuối của `main` sau khi push); artifacts chấm điểm được commit ở `f130e5e` (CP5) và sinh từ code E–H của CP4; code E–H không đổi từ đó tới commit nộp
 
 ## Tóm tắt kết quả
 
@@ -37,18 +37,19 @@ EKF. Vì vậy hai RMSE được tính trên đúng cùng 502 cặp track–GT.
 - **Ghost = 0:** detector có 16 FP, nhưng track mới cần ít nhất 5 frame có hit lidar
   (nhanh nhất là 5 frame liên tiếp, score 1/6 → 5/6 > 0.8) mới được confirmed, nên FP
   rời rạc bị xoá trước khi thành confirmed track.
-- **Miss = 239:** 222 trong số đó là xe detector bỏ sót (`det_fn = 222`, recall 0.70),
-  và `coverage` không phạt các xe này. Phần còn lại đến từ độ trễ xác nhận. Ví dụ ở
-  frame 0–3, 2 xe được phát hiện nhưng `confirmed = 0`, `misses = 2`; tới frame 4 cả hai
-  mode mới có `confirmed = 2` (dòng 4–5 và 203–204 của `grade_run.log`). Cộng theo
-  frame, `max(0, misses − det_fn)` bằng 22 track-frame bị trễ. Ngược lại, có ít nhất
-  5 GT-frame detector bỏ sót nhưng track vẫn ghép được nhờ bước predict
-  (239 − 222 = 22 − 5).
+- **Miss = 239**, so với `det_fn = 222` GT-frame bị detector bỏ sót (recall 0.70;
+  `coverage` không phạt các xe này). Chênh lệch +17 = 22 − 5:
+  - Cộng theo frame `max(0, misses − det_fn)`, có ít nhất 22 GT-frame detector có thấy
+    nhưng chưa có confirmed track ghép được. Trường hợp điển hình là độ trễ xác nhận: ở
+    frame 0–3, 2 xe được phát hiện nhưng `confirmed = 0`, `misses = 2`; tới frame 4 cả
+    hai mode mới có `confirmed = 2` (dòng 4–5 và 203–204 của `grade_run.log`).
+  - Ngược lại, có ít nhất 5 GT-frame detector bỏ sót nhưng track vẫn ghép được nhờ
+    bước predict.
 - **Theo trục** (tính lại bằng [`bonus/calibration_sweep.py`](bonus/calibration_sweep.py);
   script tái tạo đúng RMSE của cả hai mode): lidar x/y/z = 0.108/0.079/0.068 m, fused
   = 0.093/0.062/0.077 m. Camera đo hướng nhìn rất chính xác: σ = 5 px với
   f = 2083 px là khoảng 2.4 mrad, tức khoảng 0.05 m vuông góc tia nhìn ở 20 m. Nhờ đó
-  sai số ngang y giảm, và x cũng giảm nhẹ.
+  sai số ngang y giảm rõ (0.079 → 0.062 m); x cũng giảm (0.108 → 0.093 m).
   - Ngược lại, z tệ hơn vì đo camera có **bias**: trong 509 lần update camera,
     innovation trung bình là γ_u = −11.9 px, γ_v = +7.6 px, trong khi một phép đo
     không chệch phải có trung bình ≈ 0.
@@ -119,7 +120,7 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
      nó không thể nhỏ hơn ≈ 2 m vì `P_xx` sau predict luôn ≥ `Q` = 0.3 m².
    - Euclidean dùng ngưỡng mét cố định: hoặc quá chặt với track mới, hoặc quá lỏng với
      track ổn định. Nó cũng bỏ qua hướng của bất định và không so được pixel của camera.
-   - Bằng chứng: khi camera lệch yaw 1°, cổng chặn 96% đo camera (509 → 20 lần update;
+   - Bằng chứng: khi camera lệch yaw 1°, số update camera qua cổng giảm 96% (509 → 20;
      xem Bonus).
 3. **Pipeline là track-then-fuse hay fuse-then-track? Chỉ ra trên log `fusion-run-lab`.**
    - **Track-then-fuse.** Có một danh sách track duy nhất. Mỗi frame, mọi track được
@@ -136,16 +137,17 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
        `matches = 2`, `misses = 1`, nhưng `sum_sq_err` là 0.0308 m² (lidar) và
        0.0346 m² (fused).
 4. **Nếu camera lệch calibration, triệu chứng gì trên innovation/residual?**
-   - Innovation camera không còn trung bình gần 0 mà lệch có hệ thống khoảng
-     −f·tan(δ). Với yaw δ = 0.1°/0.25°/0.5°, `mean γ_u` đi từ −11.9 px lần lượt xuống
-     −15.6/−20.5/−27.6 px.
+   - Innovation camera bị cộng thêm một độ lệch có hệ thống ≈ −f·tan(δ). Ngay ở 0° đã
+     có bias −11.9 px do tâm hộp 2D không trùng hình chiếu tâm 3D; với yaw
+     δ = 0.1°/0.25°/0.5°, `mean γ_u` lần lượt xuống −15.6/−20.5/−27.6 px.
    - NIS trung bình tăng 2.25 → 3.09 → 4.71 → 7.64, trong khi giá trị kỳ vọng là 2 và
      cổng ở 10.60. Bộ lọc trở nên "không nhất quán": innovation lớn hơn mức `S` dự
      đoán.
-   - Tỷ lệ đo camera qua cổng giảm (509 → 506 → 484 → 304 lần update) và RMSE ngang tăng
+   - Số đo camera qua cổng giảm (509 → 506 → 484 → 304 lần update) và RMSE ngang tăng
      (`rmse_y` 0.062 → 0.172 m).
    - Lệch nhỏ (≤ 0.5°) **lọt cổng** và kéo track lệch ngang: đây là vùng nguy hiểm nhất.
-     Lệch lớn (≥ 1° ≈ 36 px) bị cổng chặn gần hết nên fused lùi về gần lidar-only.
+     Lệch lớn (≥ 1° ≈ 36 px) bị cổng chặn gần hết (chỉ còn 20 và 19 update) nên fused
+     lùi về gần lidar-only.
    - Residual lidar xuất hiện thành phần kéo ngược lại (hai cảm biến "giằng co"):
      γ_y trung bình của lidar trên track confirmed là −0.002 m khi tắt camera, −0.083 m
      ở 0°, −0.115/−0.150 m ở 0.1°/0.25°, và về ≈ 0 khi camera bị chặn (≥ 1°). Bảng số
@@ -162,7 +164,7 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
      ([`manager.py` dòng 95, 111](../platform/fusion_lab/tracking/manager.py#L88-L125)).
    - Nếu suy sensor từ danh sách đo hoặc dùng mặc định, một frame lidar không có
      detection sẽ bỏ qua miss, nên ghost sống mãi. Ngược lại, một frame camera rỗng bị
-     coi là lidar sẽ trừ điểm hoặc xoá track sai, tức hai lần miss mỗi frame.
+     coi là lidar sẽ trừ điểm track thêm một lần mỗi frame, hoặc xoá track sai.
    - Các test `test_empty_lidar_frame_scores_then_deletes_exhausted_track` và
      `test_camera_pass_never_deletes_or_spawns` kiểm tra đúng hai trường hợp này.
    - **Lidar quyết định tồn tại** vì detector lidar phủ toàn cửa sổ BEV 0–50 m × ±25 m
@@ -171,7 +173,7 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
    - Camera chỉ có hướng 2D (không có độ sâu nên không khởi tạo được track 3D), và FOV
      hẹp (−24.8°…+24.7° với camera FRONT của segment này). "Miss camera" vì thế không
      có nghĩa là xe biến mất.
-   - Nếu camera cũng cộng điểm, mỗi frame có 2 lần cộng: xác nhận nhanh gấp đôi, ghost
+   - Nếu camera cũng cộng điểm, mỗi frame có thể có 2 lần cộng: xác nhận nhanh gấp đôi, ghost
      khó bị xoá, và score mất ý nghĩa "tỷ lệ hit trong `window` frame lidar". Hơn nữa, đo
      camera ở lab lấy từ nhãn GT, nên cho nó đổi vòng đời là rò rỉ GT vào quyết định tồn
      tại.
@@ -235,8 +237,9 @@ Liệt kê phần bonus đã làm, file bằng chứng trong `student/bonus/` v�
     nằm trong khoảng 60–184 px² (p10–p90), tức σ ≈ 8–14 px, nên lệch ≤ 0.25° (≤ 9 px)
     vẫn qua cổng và kéo track lệch ngang: `rmse_y` tăng gấp đôi, và lidar phải kéo
     ngược lại mạnh hơn (γ_y lidar −0.083 → −0.150 m).
-  - Ở 0.5°, cổng bắt đầu loại khoảng 40% đo. Ở ≥ 1°, NIS của hầu hết đo vượt 10.60 nên
-    96% bị chặn, và fused lùi về gần lidar-only.
+  - Ở 0.5°, số update camera giảm khoảng 40% (509 → 304). Ở ≥ 1°, hầu hết các cặp từng
+    được ghép ở 0° có NIS vượt 10.60, nên số update giảm 96% (còn 20 và 19) và fused lùi
+    về gần lidar-only.
   - RMSE ở 1° và 2° vẫn cao hơn lidar-only (0.174–0.178 so với 0.150 m) vì 19–20 lần
     update còn lọt cổng. Đó không phải xe ở gần (độ sâu 10.8–49.8 m) mà là các track
     còn bất định cao: `S_uu` trung vị ≈ 695 px² so với 89 px² ở 0°, nên cổng rất rộng.
